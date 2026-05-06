@@ -43,8 +43,7 @@ public class MainApp extends Application {
     private BufferedReader entrada;
     private String nomeInspetor;
     private List<String> historicoMensagens = new ArrayList<>();
-
-    // CORREÇÃO GARGALO 3: Estrutura de dados para Inspetores Online
+    
     // Usamos TreeSet para manter os nomes em ordem alfabética.
     private Set<String> inspetoresOnline = new TreeSet<>();
 
@@ -56,15 +55,13 @@ public class MainApp extends Application {
     private ComboBox<String> comboLocal;
     private Label labelStatusCabecalho, labelOxigenio, labelPoluicao;
     private StackPane rootStack;
-
-    // Design System (Paleta Oficial) - NÃO ALTERADO
+    
     private final String BG_COLOR = "#F5F5F7";
     private final String GREEN_ACCENT = "#34C759";
     private final String TEXT_DARK = "#1D1D1F";
     private final String RED_ALERT = "#FF3B30";
     private final String GRAY_TEXT = "#86868B";
-
-    // Ícones SVG - NÃO ALTERADO
+    
     private final String SVG_CLIP = "M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.31 2.69 6 6 6s6-2.69 6-6V6h-1.5z";
     private final String SVG_SEND = "M2.01 21L23 12 2.01 3 2 10l15 2-15 2z";
     private final String SVG_EMOJI = "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z";
@@ -254,8 +251,7 @@ public class MainApp extends Application {
             String msg = partes[3];
 
             boolean eMinha = user.equals(nomeInspetor);
-
-            // CORREÇÃO GARGALO 3: Eventos de Entrada e Saída
+            
             if (tipo.equals("SISTEMA") && msg.startsWith("ENTROU:")) {
                 String newUser = msg.split(":")[1];
                 inspetoresOnline.add(newUser);
@@ -271,8 +267,7 @@ public class MainApp extends Application {
                 adicionarBolhaUI(msg, "SISTEMA", "REDE", false);
                 return;
             }
-
-            // CORREÇÃO GARGALO 2: Recebimento do Arquivo e Decodificação Base64
+            
             if (tipo.equals("ARQUIVO")) {
                 String[] arquivoPartes = msg.split("::", 2);
                 String nomeArquivo = arquivoPartes[0];
@@ -343,8 +338,7 @@ public class MainApp extends Application {
             inputField.clear();
         }
     }
-
-    // CORREÇÃO GARGALO 2: Transferência de Arquivo Real
+    
     private void handleArquivo() {
         FileChooser fc = new FileChooser();
         File file = fc.showOpenDialog(primaryStage);
@@ -396,8 +390,7 @@ public class MainApp extends Application {
             mostrarToastErro("Relatório salvo com sucesso!");
         } catch (Exception e) { e.printStackTrace(); }
     }
-
-    // CORREÇÃO GARGALO 3: Lista 100% Dinâmica
+    
     private void atualizarListaInspetores() {
         listaInspetores.getChildren().clear();
 
