@@ -33,6 +33,7 @@ public class Servidor {
     static void broadcast(String mensagem, String remetente) {
         synchronized (clientesConectados) {
             for (Map.Entry<String, PrintWriter> entrada : clientesConectados.entrySet()) {
+                // O servidor apenas repassa a String bruta para os clientes
                 entrada.getValue().println(mensagem);
             }
         }
@@ -71,16 +72,22 @@ public class Servidor {
                 }
 
                 registrarCliente(nomeInspetor, saida);
-                broadcast("[SISTEMA] " + nomeInspetor + " entrou no canal.", nomeInspetor);
+
+                // CORREÇÃO GARGALO 1: Protocolo de Sistema
+                // Encapsula o aviso de entrada no protocolo exato do Front-end
+                broadcast("[SISTEMA|REDE|INFO|ENTROU:" + nomeInspetor + "]", nomeInspetor);
 
                 String linha;
                 while ((linha = entrada.readLine()) != null) {
                     if (linha.equalsIgnoreCase("/sair")) {
                         break;
                     }
-                    String mensagemFormatada = "[" + nomeInspetor + "]: " + linha;
-                    System.out.println(mensagemFormatada);
-                    broadcast(mensagemFormatada, nomeInspetor);
+
+                    // CORREÇÃO GARGALO 1: Roteador Passivo
+                    // Removemos a concatenação suja ("[" + nomeInspetor + "]: " + linha).
+                    // Agora o servidor apenas faz o broadcast do pacote original intacto.
+                    System.out.println("Pacote roteado: " + linha);
+                    broadcast(linha, nomeInspetor);
                 }
 
             } catch (IOException e) {
@@ -88,7 +95,10 @@ public class Servidor {
             } finally {
                 if (nomeInspetor != null) {
                     removerCliente(nomeInspetor);
-                    broadcast("[SISTEMA] " + nomeInspetor + " saiu do canal.", nomeInspetor);
+
+                    // CORREÇÃO GARGALO 1: Protocolo de Sistema
+                    // Encapsula o aviso de saída no protocolo exato do Front-end
+                    broadcast("[SISTEMA|REDE|INFO|SAIU:" + nomeInspetor + "]", nomeInspetor);
                 }
                 try {
                     socket.close();
