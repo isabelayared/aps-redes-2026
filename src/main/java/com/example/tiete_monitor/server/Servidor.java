@@ -5,34 +5,43 @@ import java.net.*;
 import java.util.*;
 
 /**
- * SERVIDOR TCP/IP - CENTRAL DE MONITORAMENTO
- * ---------------------------------------------------------
- * Esta classe é responsável por aceitar conexões de múltiplos
- * inspetores simultaneamente. Ela utiliza a arquitetura de
- * Sockets de Berkeley para a comunicação de rede.
+ * ============================================================================
+ * CLASSE SERVIDOR: O CORAÇÃO DO SISTEMA DE MONITORAMENTO
+ * ============================================================================
+ * Esta classe atua como a central de controle. Ela não tem tela (interface gráfica).
+ * O papel dela é ficar rodando em segundo plano, recebendo as conexões dos
+ * inspetores (MainApp) e repassando as mensagens de um para todos os outros.
  */
 public class Servidor {
 
-    // A porta lógica onde o servidor ficará "escutando" a rede.
+    // ============================================================================
+    // 1. CONFIGURAÇÕES GERAIS E ARMAZENAMENTO
+    // ============================================================================
+
+    // A "porta" é como se fosse o número da sala onde o servidor atende as conexões.
     private static final int PORTA = 5000;
 
-    // Lista de clientes conectados. Usamos Collections.synchronizedMap para
-    // evitar que o servidor trave (Thread-safe) se duas pessoas entrarem/saírem ao mesmo tempo.
-    private static final Map<String, PrintWriter> clientesConectados =
-            Collections.synchronizedMap(new HashMap<>());
+    // Este mapa guarda todos os inspetores que estão conectados no momento.
+    // Usamos 'synchronizedMap' para evitar erros caso duas pessoas entrem no exato mesmo milissegundo.
+    private static final Map<String, PrintWriter> clientesConectados = Collections.synchronizedMap(new HashMap<>());
 
+    // ============================================================================
+    // 2. MÉTODO PRINCIPAL (PONTO DE PARTIDA DO SERVIDOR)
+    // ============================================================================
     public static void main(String[] args) throws IOException {
         System.out.println("=== Servidor de Monitoramento do Rio Tietê ===");
         System.out.println("Aguardando conexões na porta " + PORTA + "...\n");
 
-        // O ServerSocket abre a porta no sistema operacional e aguarda conexões.
+        // Abre a porta 5000 do computador para escutar quem quer se conectar
         try (ServerSocket serverSocket = new ServerSocket(PORTA)) {
+
+            // O loop infinito mantém o servidor sempre acordado aguardando novos inspetores.
+            // O SuppressWarnings avisa a IDE que o loop infinito foi feito de propósito.
             while (true) {
-                // O método .accept() "trava" o código até que um cliente se conecte.
+                // Quando alguém tenta conectar, o servidor "aceita" e cria um canal (socket) exclusivo com essa pessoa
                 Socket socketCliente = serverSocket.accept();
 
-                // Quando um cliente chega, criamos uma nova "Thread" (linha de execução)
-                // exclusiva para ele. Isso permite que o servidor atenda 100 clientes ao mesmo tempo.
+                // Para não travar o servidor, criamos uma Thread (um processo paralelo) para cuidar desse inspetor recém-chegado
                 Thread threadCliente = new Thread(new ManipuladorCliente(socketCliente));
                 threadCliente.setDaemon(true);
                 threadCliente.start();
@@ -40,80 +49,95 @@ public class Servidor {
         }
     }
 
+    // ============================================================================
+    // 3. MÉTODOS DE GERENCIAMENTO DE REDE (MENSAGENS E USUÁRIOS)
+    // ============================================================================
+
     /**
-     * Pega uma mensagem recebida e envia (faz o roteamento) para TODOS
-     * os inspetores que estão na lista de clientesConectados.
+     * O método Broadcast funciona como um alto-falante.
+     * Ele pega uma mensagem recebida de um inspetor e espalha para TODOS os outros conectados.
      */
-    static void broadcast(String mensagem, String remetente) {
+    static void broadcast(String mensagem) {
         synchronized (clientesConectados) {
             for (Map.Entry<String, PrintWriter> entrada : clientesConectados.entrySet()) {
-                entrada.getValue().println(mensagem);
+                entrada.getValue().println(mensagem); // Dispara a mensagem para a tela do cliente
             }
         }
     }
 
-    // Adiciona um novo inspetor ao "Dicionário" de clientes ativos.
+    /**
+     * Adiciona o inspetor no mapa do servidor quando ele entra no aplicativo.
+     */
     static void registrarCliente(String nome, PrintWriter saida) {
         clientesConectados.put(nome, saida);
         System.out.println("[+] Inspetor conectado: " + nome + " | Total online: " + clientesConectados.size());
     }
 
-    // Remove um inspetor que fechou o programa ou perdeu a conexão.
+    /**
+     * Remove o inspetor do mapa do servidor quando ele fecha o aplicativo.
+     */
     static void removerCliente(String nome) {
         clientesConectados.remove(nome);
         System.out.println("[-] Inspetor desconectado: " + nome + " | Total online: " + clientesConectados.size());
     }
 
+    // ============================================================================
+    // 4. CLASSE INTERNA: MANIPULADOR DE CLIENTE (ATENDENTE INDIVIDUAL)
+    // ============================================================================
     /**
-     * CLASSE INTERNA: ManipuladorCliente
-     * O Runnable significa que esta classe vai rodar em paralelo (Concorrência).
-     * Ela é responsável por ficar ouvindo tudo o que UM cliente específico envia.
+     * Esta classe existe para que o servidor possa conversar com várias pessoas ao mesmo tempo.
+     * Para cada pessoa que entra, o servidor cria um "ManipuladorCliente" exclusivo para ela.
      */
     static class ManipuladorCliente implements Runnable {
         private final Socket socket;
         private String nomeInspetor;
 
         ManipuladorCliente(Socket socket) {
-            this.socket = socket;
+            this.socket = socket; // Guarda a conexão específica deste usuário
         }
 
         @Override
         public void run() {
             try (
-                    // buffer de entrada (lê o que o cliente enviou)
+                    // "entrada" lê o que o cliente digitou. "saida" envia texto para o cliente.
                     BufferedReader entrada = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    // buffer de saída (envia dados para o cliente) - o 'true' é o auto-flush
                     PrintWriter saida = new PrintWriter(socket.getOutputStream(), true)
             ) {
-                // A primeira mensagem que o cliente manda é sempre o próprio nome.
+                // 1º Passo: Assim que conecta, lê o nome de login que o inspetor digitou
                 nomeInspetor = entrada.readLine();
                 if (nomeInspetor == null || nomeInspetor.isBlank()) {
                     nomeInspetor = "Inspetor-" + socket.getPort();
                 }
 
+                // 2º Passo: Salva ele na lista de ativos e avisa a rede que ele entrou
                 registrarCliente(nomeInspetor, saida);
-                // Avisa a todos que alguém entrou usando o protocolo do front-end
-                broadcast("[SISTEMA|REDE|INFO|ENTROU:" + nomeInspetor + "]", nomeInspetor);
+                broadcast("[SISTEMA|REDE|INFO|ENTROU:" + nomeInspetor + "]");
 
-                // Loop infinito: fica escutando tudo o que este inspetor digita
                 String linha;
+                // 3º Passo: Fica lendo infinitamente as mensagens que este inspetor mandar no chat
                 while ((linha = entrada.readLine()) != null) {
                     if (linha.equalsIgnoreCase("/sair")) {
-                        break; // Se ele digitar /sair, quebra o loop e desconecta
+                        break; // Se ele enviou o comando de sair, encerra o loop
                     }
-                    // Repassa a mensagem (já no formato [TIPO|USER|LOCAL|MSG]) para todos
-                    broadcast(linha, nomeInspetor);
+
+                    System.out.println("Pacote roteado: " + linha);
+
+                    // Repassa o relatório/mensagem do inspetor para todos os outros na rede
+                    broadcast(linha);
                 }
 
             } catch (IOException e) {
-                System.err.println("[ERRO] Conexão perdida com " + nomeInspetor);
+                // Trata desconexões repentinas (ex: a internet do cliente caiu)
+                System.err.println("[ERRO] Conexão perdida com " + nomeInspetor + ": " + e.getMessage());
             } finally {
-                // Bloco executado obrigatoriamente quando o cliente se desconecta
+                // 4º Passo: Limpeza. Quando o cliente sai de propósito ou a conexão cai, remove da lista e avisa geral.
                 if (nomeInspetor != null) {
                     removerCliente(nomeInspetor);
-                    broadcast("[SISTEMA|REDE|INFO|SAIU:" + nomeInspetor + "]", nomeInspetor);
+                    broadcast("[SISTEMA|REDE|INFO|SAIU:" + nomeInspetor + "]");
                 }
-                try { socket.close(); } catch (IOException ignored) {}
+                try {
+                    socket.close();
+                } catch (IOException ignored) {}
             }
         }
     }
